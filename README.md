@@ -3,8 +3,7 @@ Experiments for integrating convolutions and self-attention.
 Code adapted from https://github.com/huggingface/transformers.
 Run on Python 3.6.9.
 
-Note: this code is not fully cleaned yet.
-
+## Training
 To train tokenizer, use custom_scripts/train_spm_tokenizer.py.
 To pre-train BERT with a plain text dataset:
 <pre>
@@ -43,7 +42,18 @@ python3 run_language_modeling.py \
 --output_dir="./bert-experiments/bert"
 </pre>
 
-Run downstream GLUE tasks (note: batch size represents max batch size, because batch size is adjusted for each task):
+Optional flags to change BERT architecture when pre-training from scratch:<br/>
+In the following, qk uses query/key attention, convfixed is a fixed lightweight convolution, convq is query-based dynamic lightweight convolution (relative embeddings), convk is a key-based dynamic lightweight convolution, and convolution is a fixed depthwise convolution.
+<pre>--attention_kernel="[qk]_[convfixed]_[convq]_[convk] [num_positions_each_dir]"</pre>
+Remove absolute position embeddings:
+<pre>--remove_position_embeddings</pre>
+Convolutional values for half of heads:
+<pre>--value_forward="convolution_[depth]_[mixed]_[no_act] [num_positions_each_dir] [num_groups]"</pre>
+Convolutional queries/keys for half of heads:
+<pre>--qk="convolution_[depth]_[mixed]_[no_act] [num_positions_each_dir] [num_groups]"</pre>
+
+## Fine-tuning
+Training and evaluation for downstream GLUE tasks (note: batch size represents max batch size, because batch size is adjusted for each task):
 <pre>
 python3 run_glue.py \
 --data_dir="./glue-data/data-tsv" \
@@ -59,12 +69,27 @@ python3 run_glue.py \
 --do_train
 </pre>
 
-Optional flags to change BERT architecture when pre-training from scratch:
-<pre>--attention_kernel="[qk]_[convfixed]_[convq]_[convk] [num_positions_each_dir]"</pre>
-Here, qk uses query/key attention, convfixed is a fixed lightweight convolution, convq is query-based dynamic lightweight convolution (relative embeddings), convk is a key-based dynamic lightweight convolution, and convolution is a fixed depthwise convolution.
-Additional flags:
-<pre>--remove_position_embeddings</pre>
-<pre>--value_forward="convolution_[depth]_[mixed]_[no_act] [num_positions_each_dir] [num_groups]"</pre>
-(use convolutional value for half of heads)
-<pre>--qk="convolution_[depth]_[mixed]_[no_act] [num_positions_each_dir] [num_groups]"</pre>
-(use convolutional queries/keys for half of heads)
+## Prediction
+Run the fine-tuned models on the GLUE test set:<br/>
+This adds a file with test set predictions to each GLUE task directory.
+<pre>
+python3 run_glue.py \
+--data_dir="./glue-data/data-tsv" \
+--task_name=ALL \
+--save_steps=9999999 \
+--max_seq_length 128 \
+--per_device_train_batch_size 99999 \
+--tokenizer_name="./data/sentencepiece/spm.model" \
+--model_name_or_path="./bert-experiments/placeholder" \
+--output_dir="./bert-experiments/bert-glue" \
+--hyperparams="electra_base" \
+--do_predict
+</pre>
+Then, test results can be compiled into one directory.
+The test_results directory will contain test predictions, using the finetuned model with the highest dev set score for each task.
+The files in test_results can be zipped and submitted to the GLUE benchmark site for evaluation.
+<pre>
+python3 custom_scripts/parse_glue.py \
+--input="./bert-experiments/bert-glue" \
+--test_dir="./bert-experiments/bert-glue/test_results"
+</pre>
