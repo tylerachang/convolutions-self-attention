@@ -79,6 +79,9 @@ def run_task(model_args, data_args, training_args):
     # The .from_pretrained methods guarantee that only one local process can concurrently
     # download model & vocab.
 
+    if not training_args.do_train:
+        model_args.model_name_or_path = training_args.output_dir
+
     config = AutoConfig.from_pretrained(
         model_args.config_name if model_args.config_name else model_args.model_name_or_path,
         num_labels=num_labels,
@@ -181,6 +184,10 @@ def run_task(model_args, data_args, training_args):
             mnli_mm_data_args = dataclasses.replace(data_args, task_name="mnli-mm")
             test_datasets.append(
                 GlueDataset(mnli_mm_data_args, tokenizer=tokenizer, mode="test", cache_dir=model_args.cache_dir)
+            )
+            diagnostic_data_args = dataclasses.replace(data_args, task_name="diagnostic")
+            test_datasets.append(
+                GlueDataset(diagnostic_data_args, tokenizer=tokenizer, mode="test", cache_dir=model_args.cache_dir)
             )
 
         for test_dataset in test_datasets:
@@ -313,6 +320,8 @@ def main():
         # For this case, run two sets of finetuning.
         suffixes = ["", "1", "2"]
         seeds = [42, 97, 834] # Default seed is 42.
+        if training_args.seed != 42:
+            seeds = [seed + training_args.seed for seed in seeds]
         for i in range(len(suffixes)):
             training_args.seed = seeds[i]
             run_all_tasks(copy.deepcopy(model_args),

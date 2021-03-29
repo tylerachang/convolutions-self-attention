@@ -256,6 +256,28 @@ class MnliMismatchedProcessor(MnliProcessor):
         return self._create_examples(self._read_tsv(os.path.join(data_dir, "test_mismatched.tsv")), "test_mismatched")
 
 
+class DiagnosticProcessor(MnliProcessor):
+    """Processor for the diagnostic data set."""
+
+    def get_test_examples(self, data_dir):
+        """See base class."""
+        glue_dir = os.path.dirname(data_dir)
+        return self._create_examples(self._read_tsv(os.path.join(glue_dir, "diagnostic/diagnostic.tsv")), "test_diagnostic")
+
+    # Overwrite this to use different fields.
+    def _create_examples(self, lines, set_type):
+        examples = []
+        for (i, line) in enumerate(lines):
+            if i == 0:
+                continue
+            guid = "%s-%s" % (set_type, line[0])
+            text_a = line[1]
+            text_b = line[2]
+            label = None
+            examples.append(InputExample(guid=guid, text_a=text_a, text_b=text_b, label=label))
+        return examples
+
+
 class ColaProcessor(DataProcessor):
     """Processor for the CoLA data set (GLUE version)."""
 
@@ -573,6 +595,7 @@ glue_processors = {
     "cola": ColaProcessor,
     "mnli": MnliProcessor,
     "mnli-mm": MnliMismatchedProcessor,
+    "diagnostic": DiagnosticProcessor,
     "mrpc": MrpcProcessor,
     "sst-2": Sst2Processor,
     "sts-b": StsbProcessor,
@@ -586,6 +609,7 @@ glue_output_modes = {
     "cola": "classification",
     "mnli": "classification",
     "mnli-mm": "classification",
+    "diagnostic": "classification",
     "mrpc": "classification",
     "sst-2": "classification",
     "sts-b": "regression",
